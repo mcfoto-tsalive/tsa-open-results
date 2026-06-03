@@ -1,1 +1,94 @@
-
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TSA Open Championship 2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#123b5b;--panel:rgba(8,33,55,.82);--line:rgba(255,255,255,.25);--text:#f6fbff;--muted:#c9ddea;--accent:#55a9d9;--red:#ff3b30}
+@font-face{font-family:"Future Edge";src:local("Future Edge"),local("FutureEdge")}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#123b5b;color:var(--text)}
+body{font-family:"Future Edge","Arial Black",Impact,Arial,sans-serif;background:radial-gradient(circle at top left,#1a5379 0,#123b5b 38%,#09273f 100%)}
+#app{height:100vh;padding:3vh 4vw;display:flex;flex-direction:column}
+header{display:grid;grid-template-columns:250px 1fr 230px;gap:22px;align-items:start}
+.logo{max-width:250px;max-height:170px;object-fit:contain}
+.title{text-align:center;font-size:3.8vw;line-height:1.05;letter-spacing:.08em;text-transform:uppercase}
+.meta{text-align:right;font:16px Arial,sans-serif;color:var(--muted);line-height:1.4;padding-top:18px}
+.screen-title{text-align:center;font-size:2.6vw;letter-spacing:.1em;text-transform:uppercase;margin:1vh 0 1.5vh}
+.panel{flex:1;min-height:0;border:2px solid var(--line);border-radius:22px;background:var(--panel);padding:1.7vh 2vw;overflow:hidden}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th{font-size:1.25vw;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;text-align:left;border-bottom:2px solid var(--line);padding:.6vh .5vw 1vh;white-space:nowrap}
+td{font:800 1.55vw Arial,Helvetica,sans-serif;border-bottom:1px solid rgba(255,255,255,.1);padding:.65vh .5vw}
+td.score{font-size:1.88vw;font-weight:900;text-align:right;font-variant-numeric:tabular-nums}
+.rank{width:6%;text-align:center!important;color:var(--accent);font-size:1.9vw!important;font-weight:900}
+.name{font-size:1.75vw}
+.grade{text-align:center;color:var(--muted)}
+.perfect{color:var(--red)!important}
+tbody tr:nth-child(1) .rank{color:#ffd700}
+tbody tr:nth-child(2) .rank{color:#d8d8d8}
+tbody tr:nth-child(3) .rank{color:#cd7f32}
+.grade-table col.rank-col{width:7%}.grade-table col.name-col{width:37%}.grade-table col.card-col{width:13%}.grade-table col.total-col{width:17%}
+.full-table col.rank-col{width:6%}.full-table col.name-col{width:25%}.full-table col.grade-col{width:7%}.full-table col.card-col{width:11%}.full-table col.total-col{width:12%}.full-table col.open-col{width:13%}.full-table col.aggregate-col{width:15%}
+.leaders-list{height:100%;display:flex;flex-direction:column;justify-content:center;gap:1.1vh}
+.leader-row{display:grid;grid-template-columns:28% 1fr 18%;align-items:center;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.045);padding:1.05vh 1.5vw}
+.leader-label{color:var(--accent);font-size:1.6vw;text-transform:uppercase;letter-spacing:.07em}
+.leader-name{font:900 1.9vw Arial,Helvetica,sans-serif}
+.leader-score{font:950 2.1vw Arial,Helvetica,sans-serif;text-align:right;font-variant-numeric:tabular-nums}
+.empty{text-align:center;font:700 2vw Arial,sans-serif;color:var(--muted);margin-top:14vh}
+.controls{position:fixed;left:18px;bottom:18px;display:flex;gap:8px;background:rgba(0,0,0,.72);padding:10px;border-radius:10px}
+button,label{font:700 14px Arial,sans-serif;color:#123b5b;background:white;border:0;border-radius:7px;padding:10px 12px;cursor:pointer}
+input[type=file]{display:none}.hidden{display:none!important}
+@media(max-width:900px){body{overflow:auto}#app{height:auto;min-height:100vh;padding:16px}header{grid-template-columns:110px 1fr}.logo{max-width:110px}.title{text-align:left;font-size:30px}.meta{grid-column:1/-1;text-align:left}.screen-title{font-size:26px}.panel{overflow:auto}th{font-size:13px}td,td.score,.name{font-size:16px}.leader-row{grid-template-columns:1fr}.leader-label,.leader-name,.leader-score{font-size:18px;text-align:left}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+<img class="logo" src="tsa_logo.jpg" alt="TSA logo">
+<div class="title">TSA Open Championship<br>2026</div>
+<div class="meta"><div id="now"></div><div id="updated">Loading scores.csv...</div></div>
+</header>
+<div id="screen"></div>
+</div>
+<div class="controls" id="controls">
+<label>Load scores.csv<input id="file" type="file" accept=".csv,text/csv"></label>
+<button id="prev">Prev</button><button id="next">Next</button><button id="full">Full Screen</button><button id="hide">Hide Buttons</button>
+</div>
+<script>
+const ROTATE_MS=15000, RELOAD_MS=60000, ROWS_PER_PAGE=10, VALID_GRADES=["Master","A","B","C","D"];
+const gradeLabels={Master:"Master Grade",A:"A Grade",B:"B Grade",C:"C Grade",D:"D Grade"};
+let competitors=[],screens=[],idx=0,timer=null,lastText="";
+function norm(s){return String(s??"").trim()} function key(s){return norm(s).toLowerCase().replace(/[^a-z0-9]/g,"")}
+function pick(row,names){const w=names.map(key);for(const k in row){if(w.includes(key(k)))return row[k]}return""}
+function num(v){const n=parseFloat(String(v??"").replace(/[^0-9.\-]/g,""));return Number.isFinite(n)?n:0}
+function is100(s){return Math.round(num(s))===100}
+function plain(s,x){return Math.round(num(s))+"."+String(Math.round(num(x))).padStart(2,"0")}
+function card(s,x){let t=plain(s,x);return is100(s)?'<span class="perfect">'+t+'</span>':t}
+function total300(c){let t=plain(c.t300s,c.t300x);return is100(c.c1s)&&is100(c.c2s)&&is100(c.c3s)?'<span class="perfect">'+t+'</span>':t}
+function openFmt(c){let score=String(Math.round(num(c.os))), t=plain(c.os,c.ox);if(is100(c.o1s)&&is100(c.o2s))return '<span class="perfect">'+t+'</span>';if(is100(c.o1s)||is100(c.o2s)){return '<span class="perfect">'+score[0]+'</span>'+score.slice(1)+"."+String(Math.round(num(c.ox))).padStart(2,"0")}return t}
+function overallFmt(c){let t=plain(c.alls,c.allx);return Math.round(c.alls)>=500?'<span class="perfect">'+t+'</span>':t}
+function parseCSV(text){let rows=[],row=[],field="",q=false;for(let i=0;i<text.length;i++){let c=text[i],n=text[i+1];if(q){if(c=='"'&&n=='"'){field+='"';i++}else if(c=='"')q=false;else field+=c}else{if(c=='"')q=true;else if(c==','){row.push(field);field=""}else if(c=='\n'){row.push(field);rows.push(row);row=[];field=""}else if(c!='\r')field+=c}}row.push(field);rows.push(row);let heads=(rows.shift()||[]).map(norm);return rows.map(r=>{let o={};heads.forEach((h,i)=>o[h]=r[i]??"");return o})}
+function build(rows){return rows.map(r=>{let name=norm(pick(r,["Name","Competitor","Shooter","Full Name"]));let gr=norm(pick(r,["Grade","Class"]));let grade=VALID_GRADES.find(g=>g.toLowerCase()===gr.toLowerCase())||"";let c1s=num(pick(r,["Card1 Score","Card 1 Score","C1 Score","Card1","Card 1","C1"])),c1x=num(pick(r,["Card1 Centres","Card 1 Centres","C1 Centres","Card1 X","Card 1 X","C1 X"]));let c2s=num(pick(r,["Card2 Score","Card 2 Score","C2 Score","Card2","Card 2","C2"])),c2x=num(pick(r,["Card2 Centres","Card 2 Centres","C2 Centres","Card2 X","Card 2 X","C2 X"]));let c3s=num(pick(r,["Card3 Score","Card 3 Score","C3 Score","Card3","Card 3","C3"])),c3x=num(pick(r,["Card3 Centres","Card 3 Centres","C3 Centres","Card3 X","Card 3 X","C3 X"]));let o1s=num(pick(r,["Open Card 1 Score","Open1 Score","Open 1 Score","Open Card1 Score"])),o1x=num(pick(r,["Open Card 1 Centres","Open1 Centres","Open 1 Centres","Open Card1 Centres","Open1 X","Open 1 X"]));let o2s=num(pick(r,["Open Card 2 Score","Open2 Score","Open 2 Score","Open Card2 Score"])),o2x=num(pick(r,["Open Card 2 Centres","Open2 Centres","Open 2 Centres","Open Card2 Centres","Open2 X","Open 2 X"]));let os=num(pick(r,["Open Score","Open","Open 200 Score","200 Score"]))||(o1s+o2s),ox=num(pick(r,["Open Centres","Open X","Open 200 Centres","200 Centres"]))||(o1x+o2x);let t300s=num(pick(r,["300 Score","300.30 Score","300 Match Score"]))||(c1s+c2s+c3s),t300x=num(pick(r,["300 Centres","300.30 Centres","300 Match Centres"]))||(c1x+c2x+c3x);let alls=num(pick(r,["Overall Score","Aggregate Score","500 Score","500.50 Score"]))||(t300s+os),allx=num(pick(r,["Overall Centres","Aggregate Centres","500 Centres","500.50 Centres"]))||(t300x+ox);return{name,grade,c1s,c1x,c2s,c2x,c3s,c3x,o1s,o1x,o2s,o2x,os,ox,t300s,t300x,alls,allx}}).filter(c=>c.name&&c.grade)}
+function sortBy(a,s,x){return[...a].sort((p,q)=>(q[s]-p[s])||(q[x]-p[x])||p.name.localeCompare(q.name))}
+function pages(title,items,type){let out=[];for(let i=0;i<items.length;i+=ROWS_PER_PAGE)out.push({title,items:items.slice(i,i+ROWS_PER_PAGE),offset:i,type,page:i/ROWS_PER_PAGE+1,pages:Math.ceil(items.length/ROWS_PER_PAGE)});return out}
+function makeScreens(){let all=competitors,s=[{type:"leaders",title:"Current Leaders"}];for(const g of VALID_GRADES){let items=sortBy(all.filter(c=>c.grade===g),"t300s","t300x");if(items.length)s.push(...pages(gradeLabels[g],items,"grade"))}let op=sortBy(all,"os","ox").filter(c=>c.os||c.ox);if(op.length)s.push(...pages("Open Competition",op,"open"));let ag=sortBy(all,"alls","allx").filter(c=>c.alls||c.allx);if(ag.length)s.push(...pages("Overall Aggregate",ag,"overall"));screens=s;idx=Math.min(idx,screens.length-1)}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function table(sc){let title=sc.pages>1?`${sc.title} — Page ${sc.page} of ${sc.pages}`:sc.title, cols, head;if(sc.type==="grade"){cols='<colgroup><col class="rank-col"><col class="name-col"><col class="card-col"><col class="card-col"><col class="card-col"><col class="total-col"></colgroup>';head='<thead><tr><th class="rank">Rank</th><th class="name">Competitor</th><th class="score">Card 1</th><th class="score">Card 2</th><th class="score">Card 3</th><th class="score">300.30</th></tr></thead>'}else{cols='<colgroup><col class="rank-col"><col class="name-col"><col class="grade-col"><col class="card-col"><col class="card-col"><col class="card-col"><col class="total-col"><col class="open-col">'+(sc.type==="overall"?'<col class="aggregate-col">':'')+'</colgroup>';head='<thead><tr><th class="rank">Rank</th><th class="name">Competitor</th><th class="grade">Grade</th><th class="score">Card 1</th><th class="score">Card 2</th><th class="score">Card 3</th><th class="score">300.30</th><th class="score">Open 200.20</th>'+(sc.type==="overall"?'<th class="score">500.50</th>':'')+'</tr></thead>'}let body=sc.items.map((c,i)=>{let r=sc.offset+i+1;if(sc.type==="grade")return `<tr><td class="rank">${r}</td><td class="name">${esc(c.name)}</td><td class="score">${card(c.c1s,c.c1x)}</td><td class="score">${card(c.c2s,c.c2x)}</td><td class="score">${card(c.c3s,c.c3x)}</td><td class="score total">${total300(c)}</td></tr>`;return `<tr><td class="rank">${r}</td><td class="name">${esc(c.name)}</td><td class="grade">${esc(c.grade)}</td><td class="score">${card(c.c1s,c.c1x)}</td><td class="score">${card(c.c2s,c.c2x)}</td><td class="score">${card(c.c3s,c.c3x)}</td><td class="score">${total300(c)}</td><td class="score">${openFmt(c)}</td>${sc.type==="overall"?`<td class="score total">${overallFmt(c)}</td>`:""}</tr>`}).join("");return `<div class="screen-title">${esc(title)}</div><div class="panel"><table class="${sc.type==="grade"?"grade-table":"full-table"}">${cols}${head}<tbody>${body}</tbody></table></div>`}
+function leaders(){let rows=[];function top(label,list,s,x,f){let t=sortBy(list,s,x)[0];if(t)rows.push(`<div class="leader-row"><div class="leader-label">${label}</div><div class="leader-name">${esc(t.name)}</div><div class="leader-score">${f(t)}</div></div>`)}for(const g of VALID_GRADES)top(gradeLabels[g],competitors.filter(c=>c.grade===g),"t300s","t300x",total300);top("Open Competition",competitors.filter(c=>c.os||c.ox),"os","ox",openFmt);top("Overall Aggregate",competitors.filter(c=>c.alls||c.allx),"alls","allx",overallFmt);return `<div class="screen-title">Current Leaders</div><div class="panel"><div class="leaders-list">${rows.join("")||'<div class="empty">No scores loaded yet</div>'}</div></div>`}
+function render(){let sc=screens[idx]||{type:"leaders"};document.getElementById("screen").innerHTML=sc.type==="leaders"?leaders():table(sc)}
+function loadText(t,label){lastText=t;competitors=build(parseCSV(t));makeScreens();render();document.getElementById("updated").textContent=`${label} ${new Date().toLocaleTimeString()}`}
+async function autoLoad(){try{let r=await fetch("scores.csv?cache="+Date.now());if(!r.ok)throw 0;let t=await r.text();if(t&&t!==lastText)loadText(t,"Auto-updated")}catch(e){document.getElementById("updated").textContent="scores.csv not found"}}
+function start(){clearInterval(timer);timer=setInterval(()=>{idx=(idx+1)%screens.length;render()},ROTATE_MS)}
+document.getElementById("file").onchange=e=>{let f=e.target.files[0];if(!f)return;let rd=new FileReader();rd.onload=()=>loadText(rd.result,"Updated");rd.readAsText(f)}
+document.getElementById("prev").onclick=()=>{idx=(idx-1+screens.length)%screens.length;render();start()}
+document.getElementById("next").onclick=()=>{idx=(idx+1)%screens.length;render();start()}
+document.getElementById("full").onclick=()=>document.documentElement.requestFullscreen?.()
+document.getElementById("hide").onclick=()=>document.getElementById("controls").classList.add("hidden")
+document.addEventListener("keydown",e=>{if(e.key==="ArrowRight"){idx=(idx+1)%screens.length;render();start()}if(e.key==="ArrowLeft"){idx=(idx-1+screens.length)%screens.length;render();start()}if(e.key.toLowerCase()==="h")document.getElementById("controls").classList.toggle("hidden")})
+setInterval(()=>document.getElementById("now").textContent=new Date().toLocaleString(),1000)
+setInterval(autoLoad,RELOAD_MS)
+makeScreens();render();start();autoLoad()
+</script>
+</body>
+</html>
