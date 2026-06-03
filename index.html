@@ -97,5 +97,23 @@ document.getElementById("prev").onclick=()=>{idx=(idx-1+screens.length)%screens.
 document.addEventListener("keydown",e=>{if(e.key==="ArrowRight"){idx=(idx+1)%screens.length;render();startTimer()}if(e.key==="ArrowLeft"){idx=(idx-1+screens.length)%screens.length;render();startTimer()}if(e.key.toLowerCase()==="h")document.getElementById("controls").classList.toggle("hidden")});
 setInterval(()=>document.getElementById("now").textContent=new Date().toLocaleString(),1000);buildScreens();render();startTimer();
 </script>
+
+<script>
+window.addEventListener('load', function(){
+  fetch('scores.csv?cache=' + Date.now())
+    .then(r => r.ok ? r.text() : Promise.reject())
+    .then(text => {
+      const fileInput = document.getElementById('file');
+      if (!fileInput) return;
+      const dt = new DataTransfer();
+      const file = new File([text], 'scores.csv', {type:'text/csv'});
+      dt.items.add(file);
+      fileInput.files = dt.files;
+      fileInput.dispatchEvent(new Event('change'));
+    })
+    .catch(() => {});
+});
+</script>
+
 </body>
 </html>
